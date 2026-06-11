@@ -13,6 +13,9 @@ jobs:
       contents: write
 
     steps:
+      - name: Print current time
+        run: date
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
