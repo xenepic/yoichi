@@ -2,8 +2,8 @@ name: 余市蒸溜所 空き枠監視
 
 on:
   schedule:
-    # 毎時 0, 15, 30, 45 分に実行（UTC）。日本時間は +9h。
-    - cron: '0,15,30,45 * * * *'
+    # 毎時 3,18,33,48 分に実行（UTC）。日本時間は +9h。
+    - cron: "3,18,33,48 * * * *"
   workflow_dispatch:
 
 jobs:
@@ -19,8 +19,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
@@ -35,7 +35,7 @@ jobs:
           TARGET_DATE: ${{ vars.TARGET_DATE || '2026-06-26' }}
           PARTY_SIZE: ${{ vars.PARTY_SIZE || '2' }}
           STATE_FILE_PATH: data/notified-slots.json
-          HEADLESS: 'true'
+          HEADLESS: "true"
           SELECTOR_AVAILABLE_DATE: ${{ vars.SELECTOR_AVAILABLE_DATE || '' }}
           SELECTOR_NEXT_MONTH: ${{ vars.SELECTOR_NEXT_MONTH || '' }}
           SELECTOR_TIME_SLOT: ${{ vars.SELECTOR_TIME_SLOT || '' }}
