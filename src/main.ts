@@ -3,14 +3,19 @@ import { checkAvailableSlots } from './checker';
 import { readState, writeState, getNewSlots, buildNextState } from './storage';
 import { sendDiscordNotification } from './notifier';
 
+function toJST(isoStr: string): string {
+  if (!isoStr) return '(未確認)';
+  return new Date(isoStr).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
+}
+
 async function main(): Promise<void> {
   console.log(
-    `=== 余市蒸溜所 空き枠チェック開始 [${new Date().toISOString()}] ===`
+    `=== 余市蒸溜所 空き枠チェック開始 [${toJST(new Date().toISOString())}] ===`
   );
   console.log(`対象日: ${config.targetDate} / 人数: ${config.partySize}名`);
 
   const prevState = readState(config.stateFilePath);
-  console.log(`前回確認: ${prevState.lastChecked}`);
+  console.log(`前回確認: ${toJST(prevState.lastChecked)}`);
   console.log(`通知済み枠数: ${prevState.notifiedIds.length}`);
 
   const currentSlots = await checkAvailableSlots(config);
