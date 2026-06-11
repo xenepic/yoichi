@@ -1,0 +1,57 @@
+name: 余市蒸溜所 空き枠監視
+
+on:
+  schedule:
+    # 毎時 0, 15, 30, 45 分に実行（UTC）。日本時間は +9h。
+    - cron: '0,15,30,45 * * * *'
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run availability check
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          RESERVATION_URL: ${{ vars.RESERVATION_URL || 'https://distillery.nikka.com/yoichi/reservation' }}
+          TARGET_DATE: ${{ vars.TARGET_DATE || '2026-06-26' }}
+          PARTY_SIZE: ${{ vars.PARTY_SIZE || '2' }}
+          STATE_FILE_PATH: data/notified-slots.json
+          HEADLESS: 'true'
+          SELECTOR_AVAILABLE_DATE: ${{ vars.SELECTOR_AVAILABLE_DATE || '' }}
+          SELECTOR_NEXT_MONTH: ${{ vars.SELECTOR_NEXT_MONTH || '' }}
+          SELECTOR_TIME_SLOT: ${{ vars.SELECTOR_TIME_SLOT || '' }}
+          SELECTOR_SLOT_TIME: ${{ vars.SELECTOR_SLOT_TIME || '' }}
+          SELECTOR_SLOT_FULL: ${{ vars.SELECTOR_SLOT_FULL || '' }}
+          SELECTOR_SLOT_REMAINING: ${{ vars.SELECTOR_SLOT_REMAINING || '' }}
+        run: npm run check
+
+      - name: Commit state if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/notified-slots.json
+          if git diff --staged --quiet; then
+            echo "状態に変化なし。コミットをスキップします。"
+          else
+            git commit -m "chore: update notified slots state [skip ci]"
+            git push
+          fi
