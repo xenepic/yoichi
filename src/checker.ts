@@ -6,32 +6,16 @@ import { AvailableSlot, Config } from './types';
 interface Selectors {
   availableDate: string;
   nextMonth: string;
-  timeSlot: string;
-  slotTime: string;
-  slotFull: string;
-  slotRemaining: string;
 }
 
 function loadSelectors(): Selectors {
   return {
     availableDate:
       process.env.SELECTOR_AVAILABLE_DATE ??
-      'td.available a,td.open a,[data-available="true"]',
+      'td[data-handler="selectDay"] a',
     nextMonth:
       process.env.SELECTOR_NEXT_MONTH ??
-      'button.next,.calendar-next,[aria-label="次月"],[aria-label="翌月"]',
-    timeSlot:
-      process.env.SELECTOR_TIME_SLOT ??
-      '.time-slot,.slot-item,[class*="timeslot"],[class*="time_slot"]',
-    slotTime:
-      process.env.SELECTOR_SLOT_TIME ??
-      '.slot-time,.time,[class*="slot-time"]',
-    slotFull:
-      process.env.SELECTOR_SLOT_FULL ??
-      '.full,.soldout,.closed,[data-status="full"]',
-    slotRemaining:
-      process.env.SELECTOR_SLOT_REMAINING ??
-      '.remaining,.count,[class*="remain"],[class*="zanseki"]',
+      'a.ui-datepicker-next:not(.ui-state-disabled)',
   };
 }
 
@@ -46,12 +30,11 @@ async function navigateToTargetMonth(
   const targetMonthText = `${year}年${monthNames[month - 1]}`;
 
   for (let attempt = 0; attempt < 12; attempt++) {
-    const bodyText = await page.evaluate(() => document.body.innerText);
-    if (
-      bodyText.includes(targetMonthText) ||
-      bodyText.includes(`${year}/${String(month).padStart(2, '0')}`) ||
-      bodyText.includes(`${year}-${String(month).padStart(2, '0')}`)
-    ) {
+    // Normalize whitespace (including &nbsp; U+00A0) before checking
+    const bodyText = await page.evaluate(
+      () => (document.body.textContent ?? '').replace(/[\s ]+/g, '')
+    );
+    if (bodyText.includes(targetMonthText)) {
       return;
     }
 
@@ -68,47 +51,35 @@ async function navigateToTargetMonth(
 
 async function extractSlotsFromPage(
   page: Page,
-  sel: Selectors,
   targetDate: string
 ): Promise<AvailableSlot[]> {
-  const slots = await page.$$(sel.timeSlot);
-  const results: AvailableSlot[] = [];
-
-  for (const slot of slots) {
-    const isFull = (await slot.$(sel.slotFull)) !== null;
-    if (isFull) continue;
-
-    const timeEl = await slot.$(sel.slotTime);
-    const rawText = timeEl
-      ? await timeEl.innerText()
-      : await slot.innerText();
-
-    const timeMatch = rawText.match(/(\d{1,2})[：:](\d{2})/);
-    if (!timeMatch) continue;
-
-    const time = `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}`;
-
-    let remaining: number | null = null;
-    const remEl = await slot.$(sel.slotRemaining);
-    if (remEl) {
-      const remText = await remEl.innerText();
-      const remMatch = remText.match(/(\d+)/);
-      if (remMatch) remaining = parseInt(remMatch[1], 10);
-    } else {
-      const slotText = await slot.innerText();
-      const remMatch = slotText.match(/残り(\d+)/);
-      if (remMatch) remaining = parseInt(remMatch[1], 10);
+  // Extract slots entirely in-browser to traverse the DOM relationship:
+  // div.cellBox > div.cellBox_one (time) + button.selBtn (available, text contains "残りN人")
+  const rawSlots = await page.evaluate((): Array<{ time: string; remaining: number | null }> => {
+    const results: Array<{ time: string; remaining: number | null }> = [];
+    const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('button.selBtn'));
+    for (const btn of buttons) {
+      const cellBox = btn.closest('.cellBox');
+      if (!cellBox) continue;
+      const timeEl = cellBox.querySelector('.cellBox_one');
+      const rawTime = timeEl?.textContent?.trim() ?? '';
+      const timeMatch = rawTime.match(/(\d{1,2}):(\d{2})/);
+      if (!timeMatch) continue;
+      const time = timeMatch[1].padStart(2, '0') + ':' + timeMatch[2];
+      const btnText = btn.textContent?.trim() ?? '';
+      const remMatch = btnText.match(/残り(\d+)/);
+      const remaining = remMatch ? parseInt(remMatch[1], 10) : null;
+      results.push({ time, remaining });
     }
+    return results;
+  });
 
-    results.push({
-      date: targetDate,
-      time,
-      remaining,
-      slotId: `${targetDate}T${time}`,
-    });
-  }
-
-  return results;
+  return rawSlots.map(({ time, remaining }) => ({
+    date: targetDate,
+    time,
+    remaining,
+    slotId: `${targetDate}T${time}`,
+  }));
 }
 
 async function saveErrorScreenshot(page: Page, label: string): Promise<void> {
@@ -146,22 +117,14 @@ export async function checkAvailableSlots(
       await page.waitForTimeout(500);
     }
 
-    // 対象日をカレンダーからクリック
-    const dayNum = parseInt(config.targetDate.split('-')[2], 10);
-    const availableDates = await page.$$(sel.availableDate);
-    let dateClicked = false;
+    // jQuery UI datepicker のデータ属性で対象日を特定してクリック
+    // data-month は 0-based（JavaScript 月インデックス）
+    const [yearStr, monthStr, dayStr] = config.targetDate.split('-');
+    const jsMonth = parseInt(monthStr, 10) - 1;
+    const dateSel = `td[data-handler="selectDay"][data-year="${yearStr}"][data-month="${jsMonth}"] a[data-date="${parseInt(dayStr, 10)}"]`;
+    const dateLink = await page.$(dateSel);
 
-    for (const dateEl of availableDates) {
-      const text = (await dateEl.innerText()).trim();
-      if (text === String(dayNum)) {
-        await dateEl.click();
-        dateClicked = true;
-        await page.waitForTimeout(1500);
-        break;
-      }
-    }
-
-    if (!dateClicked) {
+    if (!dateLink) {
       await saveErrorScreenshot(page, 'date-not-found');
       console.warn(
         `対象日 ${config.targetDate} の空き枠リンクが見つかりませんでした。この日の空き枠はありません。`
@@ -169,7 +132,10 @@ export async function checkAvailableSlots(
       return [];
     }
 
-    const slots = await extractSlotsFromPage(page, sel, config.targetDate);
+    await dateLink.click();
+    await page.waitForTimeout(1500);
+
+    const slots = await extractSlotsFromPage(page, config.targetDate);
     console.log(`空き枠 ${slots.length} 件を検出しました`);
     return slots;
 

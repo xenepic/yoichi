@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:distillery.nikka.com)",
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(New-Item *)",
+      "Bash(Test-Path *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(npx tsc *)",
+      "Bash(git init *)",
+      "Bash(npm run *)",
+      "Bash(git *)",
+      "Bash(New-Item -ItemType Directory -Force -Path \"C:\\\\Users\\\\xenep\\\\yoichi\\\\.github\\\\workflows\")",
+      "Bash(Out-Null)",
+      "Bash(npm test *)"
+    ]
+  }
+}
