@@ -31,7 +31,7 @@ function loadSelectors(): Selectors {
       '.full,.soldout,.closed,[data-status="full"]',
     slotRemaining:
       process.env.SELECTOR_SLOT_REMAINING ??
-      '.remaining,.count,[class*="remain"]',
+      '.remaining,.count,[class*="remain"],[class*="zanseki"]',
   };
 }
 
@@ -57,7 +57,8 @@ async function navigateToTargetMonth(
 
     const nextBtn = await page.$(sel.nextMonth);
     if (!nextBtn) {
-      console.warn('「次月」ボタンが見つかりません。SELECTOR_NEXT_MONTH を確認してください。');
+      await saveErrorScreenshot(page, 'next-month-btn-not-found');
+      console.error('「次月」ボタンが見つかりません。SELECTOR_NEXT_MONTH を確認してください。');
       return;
     }
     await nextBtn.click();
@@ -82,7 +83,7 @@ async function extractSlotsFromPage(
       ? await timeEl.innerText()
       : await slot.innerText();
 
-    const timeMatch = rawText.match(/(\d{1,2})[：:：](\d{2})/);
+    const timeMatch = rawText.match(/(\d{1,2})[：:](\d{2})/);
     if (!timeMatch) continue;
 
     const time = `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}`;
