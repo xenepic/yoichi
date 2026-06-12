@@ -29,16 +29,24 @@ export function getNewSlots(
   return current.filter(slot => !notifiedSet.has(slot.slotId));
 }
 
+function nowJST(): string {
+  const jstMs = Date.now() + 9 * 60 * 60 * 1000;
+  return new Date(jstMs).toISOString().replace('Z', '+09:00');
+}
+
 export function buildNextState(
   prev: NotifiedState,
+  currentSlots: AvailableSlot[],
   newSlots: AvailableSlot[]
 ): NotifiedState {
+  const currentIds = new Set(currentSlots.map(s => s.slotId));
+  const stillActive = prev.notifiedIds.filter(id => currentIds.has(id));
   const merged = new Set([
-    ...prev.notifiedIds,
+    ...stillActive,
     ...newSlots.map(s => s.slotId),
   ]);
   return {
     notifiedIds: [...merged],
-    lastChecked: new Date().toISOString(),
+    lastChecked: nowJST(),
   };
 }

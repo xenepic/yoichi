@@ -89,10 +89,14 @@ describe('buildNextState', () => {
       notifiedIds: ['2026-06-26T09:00'],
       lastChecked: '',
     };
+    const currentSlots: AvailableSlot[] = [
+      { date: '2026-06-26', time: '09:00', remaining: null, slotId: '2026-06-26T09:00' },
+      { date: '2026-06-26', time: '10:00', remaining: 2, slotId: '2026-06-26T10:00' },
+    ];
     const newSlots: AvailableSlot[] = [
       { date: '2026-06-26', time: '10:00', remaining: 2, slotId: '2026-06-26T10:00' },
     ];
-    const next = buildNextState(prev, newSlots);
+    const next = buildNextState(prev, currentSlots, newSlots);
     expect(next.notifiedIds).toContain('2026-06-26T09:00');
     expect(next.notifiedIds).toContain('2026-06-26T10:00');
     expect(next.notifiedIds).toHaveLength(2);
@@ -103,16 +107,43 @@ describe('buildNextState', () => {
       notifiedIds: ['2026-06-26T09:00'],
       lastChecked: '',
     };
+    const currentSlots: AvailableSlot[] = [
+      { date: '2026-06-26', time: '09:00', remaining: null, slotId: '2026-06-26T09:00' },
+    ];
     const newSlots: AvailableSlot[] = [
       { date: '2026-06-26', time: '09:00', remaining: null, slotId: '2026-06-26T09:00' },
     ];
-    const next = buildNextState(prev, newSlots);
+    const next = buildNextState(prev, currentSlots, newSlots);
     expect(next.notifiedIds).toHaveLength(1);
+  });
+
+  it('空き枠が無くなった ID は通知済みリストから削除される', () => {
+    const prev: NotifiedState = {
+      notifiedIds: ['2026-06-26T09:00', '2026-06-26T10:00'],
+      lastChecked: '',
+    };
+    const next = buildNextState(prev, [], []);
+    expect(next.notifiedIds).toHaveLength(0);
+  });
+
+  it('一度削除された枠が再び空いたら再通知対象になる', () => {
+    const prev: NotifiedState = {
+      notifiedIds: [],
+      lastChecked: '',
+    };
+    const currentSlots: AvailableSlot[] = [
+      { date: '2026-06-26', time: '09:00', remaining: 1, slotId: '2026-06-26T09:00' },
+    ];
+    const newSlots: AvailableSlot[] = [
+      { date: '2026-06-26', time: '09:00', remaining: 1, slotId: '2026-06-26T09:00' },
+    ];
+    const next = buildNextState(prev, currentSlots, newSlots);
+    expect(next.notifiedIds).toContain('2026-06-26T09:00');
   });
 
   it('lastChecked を更新する', () => {
     const before = new Date();
-    const next = buildNextState({ notifiedIds: [], lastChecked: '' }, []);
+    const next = buildNextState({ notifiedIds: [], lastChecked: '' }, [], []);
     const after = new Date();
     const ts = new Date(next.lastChecked);
     expect(ts.getTime()).toBeGreaterThanOrEqual(before.getTime());

@@ -30,7 +30,7 @@ async function main(): Promise<void> {
     console.log('新規枠なし。通知をスキップします。');
   }
 
-  const nextState = buildNextState(prevState, newSlots);
+  const nextState = buildNextState(prevState, currentSlots, newSlots);
   writeState(config.stateFilePath, nextState);
   console.log(`状態を保存しました: ${config.stateFilePath}`);
   console.log('=== チェック完了 ===');

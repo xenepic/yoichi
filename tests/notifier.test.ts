@@ -52,9 +52,16 @@ describe('buildEmbed', () => {
     expect(slotField?.value).not.toContain('残り null');
   });
 
-  it('footer に予約ページ URL を含む', () => {
+  it('embed の url に予約ページ URL が設定される', () => {
     const embed = buildEmbed(testSlots, testConfig);
-    expect(embed.footer.text).toContain('distillery.nikka.com');
+    expect(embed.url).toContain('distillery.nikka.com');
+  });
+
+  it('予約 field にクリッカブルリンクが含まれる', () => {
+    const embed = buildEmbed(testSlots, testConfig);
+    const reservationField = embed.fields.find(f => f.name === '予約');
+    expect(reservationField?.value).toContain('distillery.nikka.com');
+    expect(reservationField?.value).toMatch(/\[.*\]\(.*\)/);
   });
 
   it('color が数値である', () => {

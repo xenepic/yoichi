@@ -8,6 +8,7 @@ interface DiscordField {
 
 export interface DiscordEmbed {
   title: string;
+  url?: string;
   color: number;
   description: string;
   fields: DiscordField[];
@@ -25,14 +26,16 @@ export function buildEmbed(slots: AvailableSlot[], config: Config): DiscordEmbed
 
   return {
     title: '🥃 余市蒸溜所 空き枠が見つかりました！',
+    url: config.reservationUrl,
     color: 0xf1b42f,
     description: `希望条件に合う空き枠が **${slots.length}件** 見つかりました。`,
     fields: [
       { name: '日付', value: config.targetDate, inline: true },
       { name: '人数', value: `${config.partySize}名`, inline: true },
       { name: '空き枠', value: slotLines, inline: false },
+      { name: '予約', value: `[予約はこちら →](${config.reservationUrl})`, inline: false },
     ],
-    footer: { text: `予約はこちら → ${config.reservationUrl}` },
+    footer: { text: '余市蒸溜所 予約モニター' },
     timestamp: new Date().toISOString(),
   };
 }

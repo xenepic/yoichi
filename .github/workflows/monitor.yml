@@ -1,9 +1,6 @@
 name: 余市蒸溜所 空き枠監視
 
 on:
-  schedule:
-    # 毎時 3,18,33,48 分に実行（UTC）。日本時間は +9h。
-    - cron: "3,18,33,48 * * * *"
   workflow_dispatch:
 
 jobs:
